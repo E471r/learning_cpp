@@ -210,7 +210,7 @@ public:
                 ds -= ds.array().round().matrix();
                 d = (b_transpose * ds).norm();
                 exception = exceptions(i,j);
-                if (d <= cutoff && exception > 0.99) {
+                if (d < cutoff && exception > 0.99) {
                     U_SR += (qq(i,j) * std::erfc(alpha * d)) / d;
                 }
                 if (exception < 0.99) {
@@ -373,7 +373,7 @@ public:
                 //d = (b_transpose * ds).squaredNorm();
                 //d = std::sqrt(d);
                 exception = exceptions(i,j);
-                if (d <= cutoff && exception > 0.99) {
+                if (d < cutoff && exception > 0.99) {
                     U_SR += (qq(i,j) * std::erfc(alpha * d)) / d;
                 }
                 if (exception < 0.99) {
@@ -435,6 +435,7 @@ PYBIND11_MODULE(eigen_version, m) {
         .def(py::init<Ref<const VectorXd>, double, int, Ref<const MatrixXd>>())
         .def("compute_", &DOIT::compute_, py::arg("r"), py::arg("b"), py::arg("out"));
 }
+
 
 
 

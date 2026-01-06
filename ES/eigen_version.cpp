@@ -269,8 +269,9 @@ public:
     double U_LR;
     double U_tot;
 
-    //MatrixXd exceptions;
-    //double exception = 1.0;
+    MatrixXd exceptions;
+    double exception = 1.0;
+    double U_exceptions_correction;
 
     ES_cpp_Eigen_einsum(const VectorXd& charges, double& cut_off, int& bins,
                         const MatrixXd* exceptions_ij = nullptr)
@@ -280,8 +281,8 @@ public:
         q_tot = q.sum();
         U_self = - q.dot(q) * alpha / std::sqrt(PI);
         
-        // including exceptions if provided (ones(N,N) from numpy if no exceptions)
-        if (exceptions_ij != nullptr) { qq.array() *= (*exceptions_ij).array(); }
+        // if (exceptions_ij != nullptr) { qq.array() *= (*exceptions_ij).array(); }
+        if (exceptions_ij != nullptr) { exceptions = *exceptions_ij; }
 
         k = VectorXd::LinSpaced(2*n+1, -n, n);
         K = k.rows();
@@ -352,6 +353,7 @@ public:
         //*/
 
         U_SR = 0.0;
+        U_exceptions_correction = 0.0;
         ///*
         b_transpose = b.transpose();
         //#pragma omp parallel for reduction(+:U_SR)
@@ -365,14 +367,18 @@ public:
                 d = (b_transpose * ds).norm();
                 //d = (b_transpose * ds).squaredNorm();
                 //d = std::sqrt(d);
-                //exception = exceptions(i,j);
                 if (d <= cutoff) { // if (d <= cutoff && exception > 0.0001) {
                     U_SR += (qq(i,j) * std::erfc(alpha * d)) / d;
                 }
+                //exception = exceptions(i,j);
+                // still needs to be tested, not sure
+                //if (exception < 0.999) {
+                //    U_exceptions_correction += qq(i,j) * (exception - std::erf(alpha * d)) / d;
+                //}
             }
         }
         //*/
-        U_tot = U_self + U_SR + U_LR;
+        U_tot = U_self + U_SR + U_LR + U_exceptions_correction;
         //print_std_("######## first call done #########");
         return U_tot*138.935456; // kJ/mol
     }
@@ -425,3 +431,4 @@ PYBIND11_MODULE(eigen_version, m) {
         .def(py::init<Ref<const VectorXd>, double, int, Ref<const MatrixXd>>())
         .def("compute_", &DOIT::compute_, py::arg("r"), py::arg("b"), py::arg("out"));
 }
+

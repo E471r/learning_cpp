@@ -163,6 +163,7 @@ public:
 
     MatrixXd exceptions;
     double exception = 1.0;
+    double U_exceptions_correction;
 
     ES_cpp_Eigen_no_einsum(const VectorXd& charges, double& cut_off, int& bins,
                            const MatrixXd* exceptions_ij = nullptr)
@@ -201,6 +202,7 @@ public:
         U_LR = normalisation.dot(abc) / (PI*V);
 
         U_SR = 0.0;
+        U_exceptions_correction = 0.0;
         b_transpose = b.transpose();
         for (int i = 0; i < N - 1; ++i) {
             for (int j = i + 1; j < N; ++j) {
@@ -208,13 +210,16 @@ public:
                 ds -= ds.array().round().matrix();
                 d = (b_transpose * ds).norm();
                 exception = exceptions(i,j);
-                if (d <= cutoff && exception > 0.0001) {
-                    U_SR += exception * (qq(i,j) * std::erfc(alpha * d)) / d;
+                if (d <= cutoff && exception > 0.99) {
+                    U_SR += (qq(i,j) * std::erfc(alpha * d)) / d;
+                }
+                if (exception < 0.99) {
+                    U_exceptions_correction += qq(i,j) * (exception - std::erf(alpha * d)) / d;
                 }
             }
         }
-
-        U_tot = U_self + U_SR + U_LR;
+        
+        U_tot = U_self + U_SR + U_LR + U_exceptions_correction;
         return U_tot*138.935456; // kJ/mol
     }
 };
@@ -281,8 +286,8 @@ public:
         q_tot = q.sum();
         U_self = - q.dot(q) * alpha / std::sqrt(PI);
         
-        // if (exceptions_ij != nullptr) { qq.array() *= (*exceptions_ij).array(); }
-        if (exceptions_ij != nullptr) { exceptions = *exceptions_ij; }
+        if (exceptions_ij != nullptr) { exceptions = *exceptions_ij;} 
+        else { exceptions = MatrixXd::Ones(N,N); }
 
         k = VectorXd::LinSpaced(2*n+1, -n, n);
         K = k.rows();
@@ -430,5 +435,6 @@ PYBIND11_MODULE(eigen_version, m) {
         .def(py::init<Ref<const VectorXd>, double, int, Ref<const MatrixXd>>())
         .def("compute_", &DOIT::compute_, py::arg("r"), py::arg("b"), py::arg("out"));
 }
+
 
 
